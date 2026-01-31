@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background rectangle -->
+  <rect x="8" y="12" width="48" height="32" rx="2" ry="2"
+        fill="#4a90d9" stroke="#2c5aa0" stroke-width="2"/>
+
+  <!-- Text lines representing billboard text -->
+  <line x1="14" y1="22" x2="50" y2="22" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  <line x1="14" y1="32" x2="42" y2="32" stroke="white" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Support post -->
+  <rect x="28" y="44" width="8" height="12" fill="#666" stroke="#444" stroke-width="1"/>
+
+  <!-- Ground line -->
+  <line x1="20" y1="56" x2="44" y2="56" stroke="#444" stroke-width="2" stroke-linecap="round"/>
+</svg>
