@@ -1,7 +1,17 @@
 """Billboard Commands - GUI commands for creating billboards."""
 
+import os
 import FreeCAD
 import FreeCADGui
+
+
+def get_icon_path(icon_name="Billboard.svg"):
+    """Get the path to an icon."""
+    for base in [FreeCAD.getUserAppDataDir(), FreeCAD.getResourceDir()]:
+        icon_path = os.path.join(base, "Mod", "Billboard", "Resources", "icons", icon_name)
+        if os.path.exists(icon_path):
+            return icon_path
+    return ""
 
 
 class CreateTextBillboard:
@@ -10,6 +20,7 @@ class CreateTextBillboard:
     def GetResources(self):
         """Return command resources (icon, menu text, tooltip)."""
         return {
+            "Pixmap": get_icon_path("AddBillboard.svg"),
             "MenuText": "Create Text Billboard",
             "ToolTip": "Create a text billboard that always faces the camera",
         }

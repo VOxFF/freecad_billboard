@@ -1,5 +1,7 @@
 """FreeCAD Billboard Workbench - GUI Initialization."""
 
+import os
+import FreeCAD
 import FreeCADGui
 
 
@@ -8,7 +10,15 @@ class BillboardWorkbench(FreeCADGui.Workbench):
 
     MenuText = "Billboard"
     ToolTip = "Create text and image billboards that face the camera"
-    Icon = ""
+
+    @property
+    def Icon(self):
+        # Try to find icon in Mod directories
+        for base in [FreeCAD.getUserAppDataDir(), FreeCAD.getResourceDir()]:
+            icon_path = os.path.join(base, "Mod", "Billboard", "Resources", "icons", "Billboard.svg")
+            if os.path.exists(icon_path):
+                return icon_path
+        return ""
 
     def Initialize(self):
         """Called when the workbench is first loaded."""
