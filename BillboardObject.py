@@ -11,6 +11,12 @@ class TextBillboard:
         obj.Proxy = self
         self.Type = "TextBillboard"
 
+        # Position in 3D space
+        obj.addProperty(
+            "App::PropertyPlacement", "Placement", "Base",
+            "Position and orientation of the billboard"
+        )
+
         # Text content
         obj.addProperty(
             "App::PropertyString", "Text", "Billboard",
