@@ -29,7 +29,7 @@ class ViewProviderTextBillboard:
         # Parent node: Translation for positioning in world space
         self.translation = coin.SoTranslation()
 
-        # Child node: Rotation matrix for billboard orientation
+        # Rotation matrix for billboard orientation
         self.rotation = coin.SoMatrixTransform()
 
         # Separator for rotated content (text, background, frame)
@@ -73,20 +73,20 @@ class ViewProviderTextBillboard:
         self.font = coin.SoFont()
         self.text_material = coin.SoMaterial()
         self.text = coin.SoText3()
-        self.text.parts = coin.SoText3.FRONT  # Only render front face
+        self.text.parts = coin.SoText3.FRONT | coin.SoText3.BACK  # Render both faces
 
         self.text_sep.addChild(self.font)
         self.text_sep.addChild(self.text_material)
         self.text_sep.addChild(self.text)
 
-        # Build billboard content (all in local coordinates)
+        # Build billboard content: rotation first, then visuals
+        self.billboard_content.addChild(self.rotation)
         self.billboard_content.addChild(self.background_switch)
         self.billboard_content.addChild(self.frame_switch)
         self.billboard_content.addChild(self.text_sep)
 
-        # Build scene graph: root -> translation -> rotation -> content
+        # Build scene graph: root -> translation -> content (rotation is inside content)
         self.root.addChild(self.translation)
-        self.root.addChild(self.rotation)
         self.root.addChild(self.billboard_content)
 
         # Add to the view
@@ -102,48 +102,23 @@ class ViewProviderTextBillboard:
         print("  Setup complete")
 
     def _setup_camera_sensor(self):
-        """Set up a sensor to watch camera changes and update billboard orientation."""
+        """Set up callback during render traversal to update billboard orientation."""
         print("_setup_camera_sensor called")
 
-        view = FreeCADGui.ActiveDocument.ActiveView
-        if view is None:
-            print("  No ActiveView")
-            return
-
-        camera = view.getCameraNode()
-        if camera is None:
-            print("  No camera node")
-            return
-
-        print(f"  Camera type: {type(camera)}")
-        print(f"  Camera position: {camera.position.getValue().getValue()}")
-
-        # Create a closure that captures self
-        def make_callback(view_provider):
-            def callback(sensor, data):
-                print(f"Camera sensor callback fired")
-                print(f"  view_provider.ViewObject = {view_provider.ViewObject}")
-                if view_provider.ViewObject:
-                    print(f"  view_provider.ViewObject.Object = {view_provider.ViewObject.Object}")
-                view_provider._update_billboard_orientation()
+        # Create a callback that fires during rendering
+        def make_render_callback(view_provider):
+            def callback(user_data, action):
+                if action.isOfType(coin.SoGLRenderAction.getClassTypeId()):
+                    view_provider._update_billboard_orientation_from_action(action)
             return callback
 
-        self._sensor_callback = make_callback(self)
-        print(f"  self id in _setup_camera_sensor: {id(self)}")
-        print(f"  self.ViewObject at sensor setup: {self.ViewObject}")
+        self._render_callback = make_render_callback(self)
+        self.callback_node = coin.SoCallback()
+        self.callback_node.setCallback(self._render_callback)
 
-        # Create sensor that triggers when camera position/orientation changes
-        self.camera_sensor = coin.SoFieldSensor(self._sensor_callback, None)
-        self.camera_sensor.attach(camera.position)
-        print("  Attached position sensor")
-
-        # Also watch orientation
-        self.orientation_sensor = coin.SoFieldSensor(self._sensor_callback, None)
-        self.orientation_sensor.attach(camera.orientation)
-        print("  Attached orientation sensor")
-
-        # Initial orientation update
-        self._update_billboard_orientation()
+        # Insert callback before the rotation node
+        self.billboard_content.insertChild(self.callback_node, 0)
+        print("  Inserted render callback")
 
 
     def _update_billboard_orientation(self):
@@ -176,67 +151,30 @@ class ViewProviderTextBillboard:
             print("  No camera, returning")
             return
 
-        # Get camera orientation
-        cam_orientation = camera.orientation.getValue()
+        # This method is no longer used - see _update_billboard_orientation_from_action
+        pass
 
-        # Check if orthographic or perspective camera
-        is_ortho = isinstance(camera, coin.SoOrthographicCamera)
-        print(f"  Camera type: {'Orthographic' if is_ortho else 'Perspective'}")
+    def _update_billboard_orientation_from_action(self, action):
+        """Update billboard orientation using info from render action."""
+        # Get the VIEWING matrix (camera transform) from the state
+        state = action.getState()
+        vm = coin.SoViewingMatrixElement.get(state)
 
-        if is_ortho:
-            # For orthographic camera, use camera view direction (negative Z in camera space)
-            # Camera looks along -Z, so the "to camera" vector is +Z in camera space
-            to_cam = cam_orientation.multVec(coin.SbVec3f(0, 0, 1))
-            print(f"  Camera view direction (forward): {to_cam.getValue()}")
-        else:
-            # For perspective camera, use direction from billboard to camera
-            pos = obj.Placement.Base
-            billboard_pos = coin.SbVec3f(pos.x, pos.y, pos.z)
-            cam_pos = camera.position.getValue()
-            print(f"  Billboard pos: {billboard_pos.getValue()}")
-            print(f"  Camera pos: {cam_pos.getValue()}")
-            to_cam = cam_pos - billboard_pos
-            to_cam.normalize()
-            print(f"  To camera (forward): {to_cam.getValue()}")
+        # The viewing matrix transforms world to camera space
+        # We want the inverse rotation to cancel it out
+        m = vm.getValue()
 
-        # Use world up for billboard (stays upright in world space)
-        world_up = coin.SbVec3f(0, 1, 0)
+        # Extract rotation (upper-left 3x3) and transpose (inverse for orthogonal matrix)
+        r00, r01, r02 = m[0][0], m[1][0], m[2][0]
+        r10, r11, r12 = m[0][1], m[1][1], m[2][1]
+        r20, r21, r22 = m[0][2], m[1][2], m[2][2]
 
-        # Calculate billboard basis vectors
-        # Forward = toward camera (Z axis of billboard)
-        forward = to_cam
-
-        # Right = cross(world_up, forward)
-        right = world_up.cross(forward)
-        length = right.length()
-        print(f"  Right before normalize: {right.getValue()}, length: {length}")
-
-        # Handle edge case: looking straight up or down
-        if length < 0.001:
-            cam_right = cam_orientation.multVec(coin.SbVec3f(1, 0, 0))
-            right = cam_right
-            print(f"  Using camera right (edge case)")
-        else:
-            right.normalize()
-
-        print(f"  Right: {right.getValue()}")
-
-        # Recalculate up to ensure orthogonality
-        up = forward.cross(right)
-        up.normalize()
-        print(f"  Up: {up.getValue()}")
-
-        # Build rotation matrix from basis vectors
-        # Columns are: right (X), up (Y), forward (Z)
-        # Use list-of-rows constructor for proper column-major handling
         matrix = coin.SbMatrix([
-            [right[0], up[0], forward[0], 0.0],
-            [right[1], up[1], forward[1], 0.0],
-            [right[2], up[2], forward[2], 0.0],
-            [0.0,      0.0,   0.0,        1.0],
+            [r00, r01, r02, 0.0],
+            [r10, r11, r12, 0.0],
+            [r20, r21, r22, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
         ])
-        print(f"  Matrix: right={right.getValue()}, up={up.getValue()}, forward={forward.getValue()}")
-
         self.rotation.matrix.setValue(matrix)
 
     def _update_all(self, obj):
@@ -457,13 +395,9 @@ class ViewProviderTextBillboard:
         return True
 
     def _cleanup_sensors(self):
-        """Detach camera sensors."""
-        if hasattr(self, 'camera_sensor') and self.camera_sensor:
-            self.camera_sensor.detach()
-            self.camera_sensor = None
-        if hasattr(self, 'orientation_sensor') and self.orientation_sensor:
-            self.orientation_sensor.detach()
-            self.orientation_sensor = None
+        """Cleanup callback node."""
+        # No sensors to detach - using render callback instead
+        pass
 
     def dumps(self):
         """Serialize for saving."""
