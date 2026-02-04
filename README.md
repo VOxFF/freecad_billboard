@@ -6,7 +6,8 @@ always face the camera in FreeCAD's 3D view.
 It is intended for annotation, labeling, and documentation workflows where you need
 readable text overlays that remain visible from any viewing angle.
 
-<img width="2287" height="1462" alt="image" src="https://github.com/user-attachments/assets/87d77282-0d00-4031-9287-2b8cd2e6f3dc" />
+<img width="2287" height="1457" alt="image" src="https://github.com/user-attachments/assets/149df7e4-979b-4d37-96e6-8986189119e8" />
+
 
 ---
 
