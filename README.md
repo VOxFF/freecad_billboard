@@ -1,4 +1,4 @@
-# FreeCAD Billboard Workbench
+# FreeCAD Billboard
 
 FreeCAD-Billboard is a simple workbench that lets you create text billboards that
 always face the camera in FreeCAD's 3D view.
