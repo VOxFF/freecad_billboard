@@ -32,6 +32,9 @@ class ViewProviderTextBillboard:
         # Rotation matrix for billboard orientation
         self.rotation = coin.SoMatrixTransform()
 
+        # Vertical offset to shift content down (for better centering)
+        self.vertical_offset = coin.SoTranslation()
+
         # Separator for rotated content (text, background, frame)
         self.billboard_content = coin.SoSeparator()
 
@@ -77,9 +80,10 @@ class ViewProviderTextBillboard:
 
         self.text_sep.addChild(self.font)
         self.text_sep.addChild(self.text_material)
+        self.text_sep.addChild(self.vertical_offset)  # Offset only for text
         self.text_sep.addChild(self.text)
 
-        # Build billboard content: rotation first, then visuals
+        # Build billboard content: rotation, then visuals
         self.billboard_content.addChild(self.rotation)
         self.billboard_content.addChild(self.background_switch)
         self.billboard_content.addChild(self.frame_switch)
@@ -207,6 +211,10 @@ class ViewProviderTextBillboard:
             self.font.name.setValue(obj.FontName)
         if hasattr(obj, "FontSize"):
             self.font.size.setValue(obj.FontSize)
+            # Shift text for better centering
+            offset = obj.FontSize * 0.2  # positive Y (up) to center in text frame
+            self.vertical_offset.translation.setValue(0, offset, 0)
+            print(f"  Set vertical offset: {offset}")
 
     def _update_text_color(self, obj):
         """Update text color."""
